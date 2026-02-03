@@ -12,7 +12,7 @@
 
 #pragma comment(lib, "opengl32.lib")
 
-#pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3d11.lib") 
 #pragma comment(lib, "dxgi.lib")
 
 void QueryOpenGL()
@@ -288,6 +288,10 @@ int main()
     QueryDX();
 
     QueryOpenGL();
+
+    std::cout << "Press Enter to exit...\n";
+    std::cin.get();  // waits until user presses Enter
+    std::cout << "Terminating...\n";
 
     return 0;
 }
