@@ -15,7 +15,7 @@
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 
-void queryOpenGL()
+void QueryOpenGL()
 {
     // 1. Register dummy window class
     WNDCLASS wc = {};
@@ -96,20 +96,7 @@ static const char* FeatureLevelToString(D3D_FEATURE_LEVEL fl)
     }
 }
 
-int main()
-{
-    // ------------------------------------------------------------
-    // 1. Runtime check: is DX11 present?
-    // ------------------------------------------------------------
-    HMODULE d3d11 = LoadLibraryA("d3d11.dll");
-    if (!d3d11)
-    {
-        std::cout << "DX11 runtime not present\n";
-        return 0;
-    }
-
-    std::cout << "DX11 runtime found\n";
-
+int QueryOneDXDevice(IDXGIAdapter* adapter) {
     // ------------------------------------------------------------
     // 2. Create DX11 device (feature-level probe)
     // ------------------------------------------------------------
@@ -129,8 +116,8 @@ int main()
     D3D_FEATURE_LEVEL obtainedLevel = D3D_FEATURE_LEVEL_9_1;
 
     HRESULT hr = D3D11CreateDevice(
-        nullptr,                    // default adapter
-        D3D_DRIVER_TYPE_HARDWARE,
+        adapter,                    // default adapter
+        D3D_DRIVER_TYPE_UNKNOWN,
         nullptr,
         0,                           // flags
         requestedLevels,
@@ -145,7 +132,25 @@ int main()
     {
         std::cout << "Failed to create DX11 device (hr=0x"
                   << std::hex << hr << ")\n";
-        return 0;
+
+        // Fallback to software
+        hr = D3D11CreateDevice(
+            nullptr,
+            D3D_DRIVER_TYPE_WARP,
+            nullptr,
+            0,
+            requestedLevels,
+            ARRAYSIZE(requestedLevels),
+            D3D11_SDK_VERSION,
+            &device,
+            &obtainedLevel,
+            &context
+        );
+
+        if (SUCCEEDED(hr))
+            std::cout << "Using WARP software device\n";
+        else
+            return 0;
     }
 
     std::cout << "DX11 device created\n";
@@ -206,13 +211,65 @@ int main()
     }
 
     // ------------------------------------------------------------
-    // Cleanup
+    // 3. Cleanup
     // ------------------------------------------------------------
     context->Release();
     device->Release();
 
+    return 0;
+}
 
-    queryOpenGL();
+int QueryDX() {
+    // ------------------------------------------------------------
+    // 1. Runtime check: is DX11 present?
+    // ------------------------------------------------------------
+    HMODULE d3d11 = LoadLibraryA("d3d11.dll");
+    if (!d3d11)
+    {
+        std::cout << "DX11 runtime not present\n";
+        return 0;
+    }
+
+    std::cout << "DX11 runtime found\n";
+
+    // ------------------------------------------------------------
+    // 2. list all adapter
+    // ------------------------------------------------------------
+    IDXGIFactory* factory = nullptr;
+    if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&factory)))
+    {
+        std::cout << "Failed to create DXGI factory\n";
+        return 1;
+    }
+
+    UINT index = 0;
+    IDXGIAdapter* adapter = nullptr;
+    while (factory->EnumAdapters(index, &adapter) != DXGI_ERROR_NOT_FOUND)
+    {
+        DXGI_ADAPTER_DESC desc;
+        adapter->GetDesc(&desc);
+
+        std::wcout << L"Adapter " << index << L": " << desc.Description << L"\n";
+        std::wcout << L"  VendorId: " << desc.VendorId 
+                   << L", DeviceId: " << desc.DeviceId << L"\n";
+        std::wcout << L"  Dedicated Video Memory: " 
+                   << (desc.DedicatedVideoMemory / (1024*1024)) << L" MB\n";
+        std::wcout << L"  Shared System Memory: " 
+                   << (desc.SharedSystemMemory / (1024*1024)) << L" MB\n";
+
+        //
+        QueryOneDXDevice(adapter);
+
+    }
+
+    return 0;
+}
+
+int main()
+{    
+    QueryDX();
+
+    QueryOpenGL();
 
     return 0;
 }
