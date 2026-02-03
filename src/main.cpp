@@ -4,11 +4,82 @@
 #include <d3d11.h>
 #include <dxgi.h>
 
+#include <GL/gl.h>
+
 #include <iostream>
 #include <vector>
 
+
+#pragma comment(lib, "opengl32.lib")
+
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
+
+void queryOpenGL()
+{
+    // 1. Register dummy window class
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = GetModuleHandle(nullptr);
+    wc.lpszClassName = "DummyGL";
+    RegisterClass(&wc);
+
+    // 2. Create hidden window
+    HWND hwnd = CreateWindowA(wc.lpszClassName, "DummyGL",
+                              0, 0, 0, 1, 1, nullptr, nullptr,
+                              wc.hInstance, nullptr);
+    if (!hwnd)
+    {
+        std::cout << "Failed to create dummy window for OpenGL\n";
+        return;
+    }
+
+    HDC hdc = GetDC(hwnd);
+
+    // 3. Set pixel format
+    PIXELFORMATDESCRIPTOR pfd = {};
+    pfd.nSize = sizeof(pfd);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    int pf = ChoosePixelFormat(hdc, &pfd);
+    if (pf == 0 || !SetPixelFormat(hdc, pf, &pfd))
+    {
+        std::cout << "Failed to set pixel format\n";
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return;
+    }
+
+    // 4. Create GL context
+    HGLRC glrc = wglCreateContext(hdc);
+    if (!glrc || !wglMakeCurrent(hdc, glrc))
+    {
+        std::cout << "Failed to create OpenGL context\n";
+        if (glrc) wglDeleteContext(glrc);
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return;
+    }
+
+    // 5. Query OpenGL version
+    const GLubyte* version = glGetString(GL_VERSION);
+    //const GLubyte* glslVer = glGetString(GL_SHADING_LANGUAGE_VERSION);
+
+    std::cout << "==================================\n";
+    std::cout << "OpenGL Version: " << (version ? (const char*)version : "Unknown") << "\n";
+    //std::cout << "GLSL Version: " << (glslVer ? (const char*)glslVer : "Unknown") << "\n";
+
+    // 6. Cleanup
+    wglMakeCurrent(nullptr, nullptr);
+    wglDeleteContext(glrc);
+    ReleaseDC(hwnd, hdc);
+    DestroyWindow(hwnd);
+}
+
+
+
 
 static const char* FeatureLevelToString(D3D_FEATURE_LEVEL fl)
 {
@@ -139,6 +210,9 @@ int main()
     // ------------------------------------------------------------
     context->Release();
     device->Release();
+
+
+    queryOpenGL();
 
     return 0;
 }
