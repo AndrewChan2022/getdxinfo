@@ -115,24 +115,21 @@ int QueryOneDXDevice(IDXGIAdapter* adapter) {
     ID3D11DeviceContext* context = nullptr;
     D3D_FEATURE_LEVEL obtainedLevel = D3D_FEATURE_LEVEL_9_1;
 
-    HRESULT hr = D3D11CreateDevice(
-        adapter,                    // default adapter
-        D3D_DRIVER_TYPE_UNKNOWN,
-        nullptr,
-        0,                           // flags
-        requestedLevels,
-        ARRAYSIZE(requestedLevels),
-        D3D11_SDK_VERSION,
-        &device,
-        &obtainedLevel,
-        &context
-    );
-
-    if (FAILED(hr))
-    {
-        std::cout << "Failed to create DX11 device (hr=0x"
-                  << std::hex << hr << ")\n";
-
+    HRESULT hr;
+    if (adapter != nullptr) {
+        hr = D3D11CreateDevice(
+            adapter,                    // default adapter
+            D3D_DRIVER_TYPE_UNKNOWN,
+            nullptr,
+            0,                           // flags
+            requestedLevels,
+            ARRAYSIZE(requestedLevels),
+            D3D11_SDK_VERSION,
+            &device,
+            &obtainedLevel,
+            &context
+        );
+    } else {
         // Fallback to software
         hr = D3D11CreateDevice(
             nullptr,
@@ -146,11 +143,19 @@ int QueryOneDXDevice(IDXGIAdapter* adapter) {
             &obtainedLevel,
             &context
         );
+    }
 
-        if (SUCCEEDED(hr))
-            std::cout << "Using WARP software device\n";
-        else
-            return 0;
+    if (FAILED(hr))
+    {
+        std::cout << "Failed to create DX11 device (hr=0x"
+                  << std::hex << hr << ")\n";        
+
+        return 0;
+
+        // if (SUCCEEDED(hr))
+        //     std::cout << "Using WARP software device\n";
+        // else
+        //     return 0;
     }
 
     std::cout << "DX11 device created\n";
@@ -249,6 +254,8 @@ int QueryDX() {
         DXGI_ADAPTER_DESC desc;
         adapter->GetDesc(&desc);
 
+        std::cout << "==================================\n";
+
         std::wcout << L"Adapter " << index << L": " << desc.Description << L"\n";
         std::wcout << L"  VendorId: " << desc.VendorId 
                    << L", DeviceId: " << desc.DeviceId << L"\n";
@@ -260,7 +267,18 @@ int QueryDX() {
         //
         QueryOneDXDevice(adapter);
 
+        // 
+        adapter->Release();   // release after use
+        adapter = nullptr;
+        index++;              // increment to next adapter
+
     }
+
+    std::cout << "==================================\n";
+    std::wcout << L"Adapter software adapter\n";
+    QueryOneDXDevice(nullptr);
+
+    factory->Release();
 
     return 0;
 }
